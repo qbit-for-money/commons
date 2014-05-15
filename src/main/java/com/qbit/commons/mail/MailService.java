@@ -1,6 +1,6 @@
 package com.qbit.commons.mail;
 
-import com.qbit.commons.env.EnvUtil;
+import com.qbit.commons.env.CommonsEnv;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
@@ -29,7 +29,7 @@ public class MailService {
 	private final Logger logger = LoggerFactory.getLogger(MailService.class);
 
 	@Inject
-	private EnvUtil env;
+	private CommonsEnv env;
 
 	@Context
 	private ServletContext servletContext;
@@ -39,7 +39,7 @@ public class MailService {
 	@PostConstruct
 	public void init() {
 		FREE_MAKER_CFG.setServletContextForTemplateLoading(
-				servletContext, "WEB-INF/templates");
+				servletContext, env.getMailTemplatesPath());
 		FREE_MAKER_CFG.setDefaultEncoding("UTF-8");
 		FREE_MAKER_CFG.setLocale(Locale.US);
 		FREE_MAKER_CFG.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);

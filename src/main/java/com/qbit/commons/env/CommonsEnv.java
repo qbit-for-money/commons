@@ -17,22 +17,17 @@ import javax.xml.bind.annotation.XmlTransient;
 @Singleton
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.PROPERTY)
-public class EnvUtil {
+public class CommonsEnv {
 
 	private final Properties properties;
 
-	public EnvUtil() {
+	public CommonsEnv() {
 		properties = new Properties();
 		try {
-			properties.load(EnvUtil.class.getResourceAsStream("/com/qbit/commons.properties"));
+			properties.load(CommonsEnv.class.getResourceAsStream("/com/qbit/commons/commons.properties"));
 		} catch (IOException ex) {
 			throw new RuntimeException(ex);
 		}
-	}
-
-	@XmlElement
-	public boolean isDemoEnabled() {
-		return Boolean.TRUE.toString().equalsIgnoreCase(properties.getProperty("demo.enabled"));
 	}
 
 	@XmlElement
@@ -48,11 +43,6 @@ public class EnvUtil {
 	@XmlTransient
 	public String getMailHost() {
 		return properties.getProperty("mail.host");
-	}
-
-	@XmlTransient
-	public int getOrderWorkerPeriodSecs() {
-		return Integer.parseInt(properties.getProperty("order.worker.period.secs"));
 	}
 
 	@XmlTransient

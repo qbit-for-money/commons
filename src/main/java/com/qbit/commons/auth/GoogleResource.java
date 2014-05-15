@@ -1,6 +1,6 @@
 package com.qbit.commons.auth;
 
-import com.qbit.commons.env.EnvUtil;
+import com.qbit.commons.env.CommonsEnv;
 import com.qbit.commons.user.UserDAO;
 import java.io.IOException;
 import java.net.URI;
@@ -45,7 +45,7 @@ public class GoogleResource {
 	private HttpServletRequest httpServletRequest;
 	
 	@Inject
-	private EnvUtil env;
+	private CommonsEnv env;
 	
 	@Inject
 	private UserDAO userDAO;

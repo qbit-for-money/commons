@@ -1,6 +1,6 @@
 package com.qbit.commons.auth;
 
-import com.qbit.commons.env.EnvUtil;
+import com.qbit.commons.env.CommonsEnv;
 import java.io.IOException;
 import java.util.Enumeration;
 import javax.servlet.Filter;
@@ -19,7 +19,7 @@ public class AuthFilter implements Filter {
 
 	public static final String USER_ID_KEY = "user_id";
 
-	private EnvUtil env;
+	private CommonsEnv env;
 	private FilterConfig filterConfig;
 
 	public static String getUserId(HttpServletRequest request) {
@@ -28,7 +28,7 @@ public class AuthFilter implements Filter {
 
 	@Override
 	public void init(FilterConfig fc) throws ServletException {
-		env = new EnvUtil();
+		env = new CommonsEnv();
 		filterConfig = fc;
 	}
 

@@ -1,7 +1,6 @@
 package com.qbit.commons.dao.util;
 
 import static com.qbit.commons.dao.util.DAOUtil.invokeInTransaction;
-import com.qbit.commons.env.EnvUtil;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -65,9 +64,6 @@ public class DefaultDAOExecutor implements DAOExecutor {
 	}
 
 	@Inject
-	private EnvUtil envUtil;
-
-	@Inject
 	private EntityManagerFactory entityManagerFactory;
 
 	private ScheduledExecutorService executorService;
@@ -98,7 +94,7 @@ public class DefaultDAOExecutor implements DAOExecutor {
 			}
 		}, maxFailCount);
 		ScheduledFuture<?> future = executorService.scheduleWithFixedDelay(failSafeRunnable,
-				0, envUtil.getOrderWorkerPeriodSecs(), TimeUnit.SECONDS);
+				0, 30, TimeUnit.SECONDS);
 		failSafeRunnable.linkToFuture(future);
 		return future;
 	}

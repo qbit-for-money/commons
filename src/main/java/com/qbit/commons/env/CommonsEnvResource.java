@@ -9,14 +9,14 @@ import javax.ws.rs.core.MediaType;
 
 @Path("env_util")
 @Singleton
-public class EnvUtilResource {
+public class CommonsEnvResource {
 
 	@Inject
-	private EnvUtil envUtil;
+	private CommonsEnv envUtil;
 
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	public EnvUtil get() {
+	public CommonsEnv get() {
 		return envUtil;
 	}
 }
