@@ -11,5 +11,5 @@ public interface DAOExecutor {
 	
 	<T> Future<T> submit(TrCallable<T> callable);
 	
-	ScheduledFuture<?> submit(TrCallable<Void> callable, int maxFailCount);
+	ScheduledFuture<?> submit(TrCallable<Void> callable, long delay, int maxFailCount);
 }

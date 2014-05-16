@@ -85,7 +85,7 @@ public class DefaultDAOExecutor implements DAOExecutor {
 	}
 
 	@Override
-	public ScheduledFuture<?> submit(final TrCallable<Void> callable, int maxFailCount) {
+	public ScheduledFuture<?> submit(final TrCallable<Void> callable, long delay, int maxFailCount) {
 		FailSafeRunnable failSafeRunnable = new FailSafeRunnable(new Runnable() {
 
 			@Override
@@ -94,7 +94,7 @@ public class DefaultDAOExecutor implements DAOExecutor {
 			}
 		}, maxFailCount);
 		ScheduledFuture<?> future = executorService.scheduleWithFixedDelay(failSafeRunnable,
-				0, 30, TimeUnit.SECONDS);
+				0, delay, TimeUnit.SECONDS);
 		failSafeRunnable.linkToFuture(future);
 		return future;
 	}
