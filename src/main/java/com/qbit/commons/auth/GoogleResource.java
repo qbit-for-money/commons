@@ -43,23 +43,24 @@ public class GoogleResource {
 
 	@Context
 	private HttpServletRequest httpServletRequest;
-	
+
 	@Inject
 	private CommonsEnv env;
-	
+
 	@Inject
 	private UserDAO userDAO;
 
 	@GET
 	@Path("authenticate")
 	@Produces("text/html")
-	public Response authenticate() {
+	public Response authenticate(@QueryParam("redirect") String redirectUri) {
 		try {
 			OAuthClientRequest request = OAuthClientRequest
 					.authorizationProvider(OAuthProviderType.GOOGLE)
 					.setClientId(env.getGoogleClientId())
 					.setResponseType("code")
 					.setScope(env.getGoogleScope())
+					.setState(redirectUri)
 					.setRedirectURI(
 							UriBuilder.fromUri(uriInfo.getBaseUri())
 							.path(env.getGoogleAuthorizeRoute()).build().toString())
@@ -77,7 +78,7 @@ public class GoogleResource {
 	public Response authorize(@QueryParam("code") String code, @QueryParam("state") String state) throws URISyntaxException {
 		String newURI = uriInfo.getBaseUri().toString();
 		newURI = newURI.substring(0, newURI.indexOf("webapi"));
-		final URI uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
+		URI uri = null;
 		try {
 			OAuthClientRequest request = OAuthClientRequest
 					.tokenProvider(OAuthProviderType.GOOGLE)
@@ -100,8 +101,16 @@ public class GoogleResource {
 			String userId = getGoogleProfileEmail(resourceResponse);
 			if (userId != null) {
 				httpServletRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, userId);
-				if(userDAO.find(userId) == null) {
+				if (userDAO.find(userId) == null) {
 					userDAO.create(userId);
+
+				}
+				if ("profile".equals(state)) {
+					uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + userId).build("/", "/users/" + userId);
+				} else if (!(state == null) && !state.isEmpty()) {
+					uri = UriBuilder.fromUri(new URI(newURI)).fragment(state).build("", state);
+				} else {
+					uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
 				}
 			}
 		} catch (OAuthSystemException | OAuthProblemException | IOException e) {
@@ -110,7 +119,7 @@ public class GoogleResource {
 		return Response.seeOther(uri).build();
 	}
 
-	private String getGoogleProfileEmail(OAuthResourceResponse resourceResponse) throws IOException {
+	public static String getGoogleProfileEmail(OAuthResourceResponse resourceResponse) throws IOException {
 		String resourceResponseBody = resourceResponse.getBody();
 		ObjectMapper objectMapper = new ObjectMapper();
 		JsonNode jsonNode = objectMapper.readTree(resourceResponseBody);
