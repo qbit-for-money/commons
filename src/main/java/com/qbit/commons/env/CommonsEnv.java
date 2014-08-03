@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import javax.inject.Singleton;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
 
 /**
  * Exchanger properties
@@ -14,7 +12,6 @@ import javax.xml.bind.annotation.XmlAccessorType;
  * @author Alexander_Sergeev
  */
 @Singleton
-@XmlAccessorType(XmlAccessType.PROPERTY)
 public class CommonsEnv {
 
 	private final Properties properties;
@@ -67,27 +64,27 @@ public class CommonsEnv {
 	public String getMailTemplatesPath() {
 		return properties.getProperty("mail.templatesPath");
 	}
-	
+
 	public Map<String, String> getAdminPath() {
 		Map<String, String> adminMap = new HashMap<>();
-		for(String name : properties.stringPropertyNames()) {
-			if(name.startsWith("filter.path.admin")) {
+		for (String name : properties.stringPropertyNames()) {
+			if (name.startsWith("filter.path.admin")) {
 				adminMap.put(name, properties.getProperty(name));
 			}
 		}
 		return adminMap;
 	}
-	
+
 	public Map<String, String> getAuthPath() {
 		Map<String, String> authMap = new HashMap<>();
-		for(String name : properties.stringPropertyNames()) {
-			if(name.startsWith("filter.path.auth")) {
+		for (String name : properties.stringPropertyNames()) {
+			if (name.startsWith("filter.path.auth")) {
 				authMap.put(name, properties.getProperty(name));
 			}
 		}
 		return authMap;
 	}
-	
+
 	public String getContextPath() {
 		return properties.getProperty("filter.path.context-path");
 	}

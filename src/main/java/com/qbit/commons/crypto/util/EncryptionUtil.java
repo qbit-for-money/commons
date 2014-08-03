@@ -1,4 +1,4 @@
-package com.qbit.commons.auth;
+package com.qbit.commons.crypto.util;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
@@ -16,19 +16,17 @@ public final class EncryptionUtil {
 	
 	public static String getMD5(String source) {
 		if (source == null) {
-			return null;
+			return "";
 		}
-		String digest = null;
 		try {
 			byte[] hash = MessageDigest.getInstance(MD5).digest(source.getBytes("UTF-8"));
 			StringBuilder buf = new StringBuilder(2 * hash.length);
 			for (byte b : hash) {
 				buf.append(String.format("%02x", b & 0xFF));
 			}
-			digest = buf.toString();
+			return buf.toString();
 		} catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
 			throw new RuntimeException(ex);
 		}
-		return digest;
 	}
 }

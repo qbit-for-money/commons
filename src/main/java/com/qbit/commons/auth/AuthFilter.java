@@ -1,17 +1,19 @@
 package com.qbit.commons.auth;
 
+import com.qbit.commons.crypto.util.EncryptionUtil;
 import com.qbit.commons.env.CommonsEnv;
 import com.qbit.commons.user.UserDAO;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerResponseContext;
-import javax.ws.rs.container.ContainerResponseFilter;
+import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.ext.Provider;
 import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.URLConnectionClient;
@@ -26,7 +28,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
  * @author Alexander_Sergeev
  */
 @Provider
-public class AuthFilter implements ContainerResponseFilter {
+public class AuthFilter implements ContainerRequestFilter {
 
 	public static final String USER_ID_KEY = "user_id";
 
@@ -37,15 +39,69 @@ public class AuthFilter implements ContainerResponseFilter {
 
 	@Context
 	private HttpServletRequest httpRequest;
-	@Context
-	private HttpServletResponse httpResponse;
 
 	public static String getUserId(HttpServletRequest request) {
 		return (String) request.getSession().getAttribute(USER_ID_KEY);
 	}
 
-	private boolean processNotAuthorizeUser(HttpServletRequest httpRequest) {
-		String accessToken = httpRequest.getHeader("Access-Token");
+	@Override
+	public void filter(ContainerRequestContext requestContext) throws IOException {
+		URI baseURI = requestContext.getUriInfo().getBaseUri();
+		String userId = getUserId(httpRequest);
+		boolean notAuthorized = ((userId == null) || (userId.isEmpty()));
+		if (!isAuthRequest(requestContext.getUriInfo()) && notAuthorized) {
+			String accessToken = requestContext.getHeaderString("Access-Token");
+			if ((accessToken != null) && !accessToken.isEmpty()) {
+				if (!processAccessToken(accessToken)) {
+					requestContext.abortWith(Response.serverError()
+							.entity("Invalid Access-Tokern header").build());
+				}
+			} else {
+				requestContext.abortWith(Response.seeOther(baseURI).build());
+			}
+		} else {
+			boolean isAdmin = env.getAdminMail().equals(EncryptionUtil.getMD5(userId));
+			if (isRequestToAdminPage(requestContext.getUriInfo()) && !isAdmin) {
+				requestContext.abortWith(Response.seeOther(baseURI).build());
+			}
+		}
+	}
+
+	private boolean isAuthRequest(UriInfo uriInfo) {
+		String path = ((uriInfo.getPath() != null) ? uriInfo.getPath() : "");
+		if (path.isEmpty()) {
+			return true;
+		}
+		Map<String, String> authPathMap = env.getAuthPath();
+		for (String authPathPrefix : authPathMap.values()) {
+			if (path.startsWith(authPathPrefix)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isRequestToAdminPage(UriInfo uriInfo) {
+		String path = ((uriInfo.getPath() != null) ? uriInfo.getPath() : "");
+		if (path.startsWith("/admin")) {
+			return true;
+		}
+		Map<String, String> adminPathMap = env.getAdminPath();
+		for (Map.Entry<String, String> entry : adminPathMap.entrySet()) {
+			if ((entry.getKey().startsWith("filter.path.admin.starts")
+					&& path.startsWith(entry.getValue()))
+					|| (entry.getKey().startsWith("filter.path.admin.ends")
+					&& path.endsWith(entry.getValue()))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean processAccessToken(String accessToken) {
+		if ((accessToken == null) || accessToken.isEmpty()) {
+			return false;
+		}
 		OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
 		try {
 			OAuthClientRequest bearerClientRequest = new OAuthBearerClientRequest(env.getGoogleUserInfoUrl())
@@ -53,86 +109,16 @@ public class AuthFilter implements ContainerResponseFilter {
 					.buildQueryMessage();
 			OAuthResourceResponse resourceResponse = oAuthClient.resource(bearerClientRequest, OAuth.HttpMethod.GET,
 					OAuthResourceResponse.class);
-			String userId = null;
-
-			try {
-				userId = GoogleResource.getGoogleProfileEmail(resourceResponse);
-			} catch (IOException e) {
-				throw new WebApplicationException(e);
-			}
+			String userId = GoogleResource.getGoogleProfileEmail(resourceResponse);
 			if (userId != null) {
+				userDAO.create(userId);
 				httpRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, userId);
-				if (userDAO.find(userId) == null) {
-					userDAO.create(userId);
-				}
 				return true;
 			} else {
 				return false;
 			}
-		} catch (OAuthSystemException | OAuthProblemException e) {
+		} catch (OAuthSystemException | OAuthProblemException | IOException e) {
 			throw new WebApplicationException(e);
-		}
-	}
-
-	private boolean isRequestToAdminPage() {
-		boolean isRequestToAdminPage = (httpRequest.getPathInfo() != null) && httpRequest.getPathInfo().startsWith("/admin");
-		if (isRequestToAdminPage) {
-			return true;
-		}
-		Map<String, String> adminPathMap = env.getAdminPath();
-
-		for (Map.Entry<String, String> entry : adminPathMap.entrySet()) {
-			if (entry.getKey().startsWith("filter.path.admin-starts")) {
-				boolean isParameterSatisfies = httpRequest.getRequestURI().startsWith(
-						entry.getValue());
-				isRequestToAdminPage = isRequestToAdminPage || isParameterSatisfies;
-			} else if (entry.getKey().startsWith("filter.path.admin-ends")) {
-				boolean isParameterSatisfies = httpRequest.getRequestURI().endsWith(
-						entry.getValue());
-				isRequestToAdminPage = isRequestToAdminPage || isParameterSatisfies;
-			}
-		}
-		return isRequestToAdminPage;
-	}
-
-	private boolean isAuthRequest() {
-		boolean isAuthRequest = (httpRequest.getPathInfo() == null);
-		if (isAuthRequest) {
-			return true;
-		}
-		Map<String, String> authPathMap = env.getAuthPath();
-		for (Map.Entry<String, String> entry : authPathMap.entrySet()) {
-			if (entry.getKey().startsWith("filter.path.auth")) {
-				boolean isParameterSatisfies = httpRequest.getPathInfo().startsWith(
-						entry.getValue());
-				isAuthRequest = isAuthRequest || isParameterSatisfies;
-			}
-		}
-		return isAuthRequest;
-	}
-
-	@Override
-	public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
-		String userId = (String) httpRequest.getSession().getAttribute(USER_ID_KEY);
-		boolean isAdmin = env.getAdminMail().equals(EncryptionUtil.getMD5(userId));
-		String contextPath = httpRequest.getContextPath();
-
-		if (isRequestToAdminPage() && !isAdmin) {
-			if (contextPath.startsWith(env.getContextPath())) {
-				httpResponse.sendRedirect(contextPath);
-			} else {
-				httpResponse.sendRedirect("/");
-			}
-		} else if ((userId == null) && !isAuthRequest()) {
-			if ((httpRequest.getHeader("Access-Token") != null) && !httpRequest.getHeader("Access-Token").isEmpty()) {
-				if (!processNotAuthorizeUser(httpRequest)) {
-					responseContext.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-				} else {
-					responseContext.setStatus(HttpServletResponse.SC_OK);
-				}
-			} else {
-				httpResponse.sendRedirect(contextPath);
-			}
 		}
 	}
 }

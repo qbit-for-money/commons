@@ -1,4 +1,4 @@
-package com.qbit.commons.util;
+package com.qbit.commons.model;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;

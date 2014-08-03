@@ -124,7 +124,6 @@ public class GoogleResource {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JsonNode jsonNode = objectMapper.readTree(resourceResponseBody);
 		JsonNode idNode = jsonNode.get("email");
-
 		return (idNode != null) ? idNode.asText() : null;
 	}
 }
