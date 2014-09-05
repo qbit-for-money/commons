@@ -18,7 +18,6 @@ import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.ws.rs.WebApplicationException;
-import org.eclipse.persistence.jpa.JpaQuery;
 
 /**
  *
@@ -169,7 +168,6 @@ public class UserDAO {
 			public UserInfo
 					call(EntityManager entityManager) {
 				UserInfo user = entityManager.find(UserInfo.class, userId, LockModeType.PESSIMISTIC_WRITE);
-				System.out.println("%% " + getAdditionalIdCount(additionalUserId) + " : " + additionalUserId);
 				if ((user == null) || userId.equals(additionalUserId) 
 						|| (getAdditionalIdCount(additionalUserId) > 0) 
 						|| (find(additionalUserId) != null)) {
