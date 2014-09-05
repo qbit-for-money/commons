@@ -57,6 +57,42 @@ public class CommonsEnv {
 		return properties.getProperty("auth.google.authorizeRoute");
 	}
 
+	public String getVKClientId() {
+		return properties.getProperty("auth.vk.clientId");
+	}
+
+	public String getVKClientSecret() {
+		return properties.getProperty("auth.vk.clientSecret");
+	}
+
+	public String getVKScope() {
+		return properties.getProperty("auth.vk.scope");
+	}
+
+	public String getVKUserInfoUrl() {
+		return properties.getProperty("auth.vk.userInfoUrl");
+	}
+
+	public String getVKAuthorizeRoute() {
+		return properties.getProperty("auth.vk.authorizeRoute");
+	}
+
+	public String getFacebookClientId() {
+		return properties.getProperty("auth.facebook.clientId");
+	}
+
+	public String getFacebookClientSecret() {
+		return properties.getProperty("auth.facebook.clientSecret");
+	}
+
+	public String getFacebookAuthorizeRoute() {
+		return properties.getProperty("auth.facebook.authorizeRoute");
+	}
+
+	public String getFacebookUserInfoUrl() {
+		return properties.getProperty("auth.facebook.userInfoUrl");
+	}
+
 	public String getAdminMail() {
 		return properties.getProperty("admin.mail");
 	}

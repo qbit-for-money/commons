@@ -6,9 +6,14 @@ import com.qbit.commons.log.model.OperationType;
 import com.qbit.commons.log.service.LogScheduler;
 import com.qbit.commons.user.UserDAO;
 import com.qbit.commons.user.UserInfo;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.http.HttpServletRequest;
@@ -25,22 +30,19 @@ import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.URLConnectionClient;
 import org.apache.oltu.oauth2.client.request.OAuthBearerClientRequest;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
-import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
 import org.apache.oltu.oauth2.client.response.OAuthResourceResponse;
 import org.apache.oltu.oauth2.common.OAuth;
-import org.apache.oltu.oauth2.common.OAuthProviderType;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
-import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
 /**
- * @author Alexander_Sergeev
+ * @author Alex
  */
-@Path("oauth2")
+@Path("facebook-oauth2")
 @Singleton
-public class GoogleResource {
+public class FacebookResource {
 
 	@Context
 	private UriInfo uriInfo;
@@ -63,14 +65,13 @@ public class GoogleResource {
 	public Response authenticate(@QueryParam("redirect") String redirectUri) {
 		try {
 			OAuthClientRequest request = OAuthClientRequest
-					.authorizationProvider(OAuthProviderType.GOOGLE)
-					.setClientId(env.getGoogleClientId())
+					.authorizationProvider(org.apache.oltu.oauth2.common.OAuthProviderType.FACEBOOK)
+					.setClientId(env.getFacebookClientId())
 					.setResponseType("code")
-					.setScope(env.getGoogleScope())
 					.setState(redirectUri)
 					.setRedirectURI(
 							UriBuilder.fromUri(uriInfo.getBaseUri())
-							.path(env.getGoogleAuthorizeRoute()).build().toString())
+							.path(env.getFacebookAuthorizeRoute()).build().toString())
 					.buildQueryMessage();
 			URI redirect = new URI(request.getLocationUri());
 			return Response.seeOther(redirect).build();
@@ -78,31 +79,6 @@ public class GoogleResource {
 			throw new WebApplicationException(e);
 		}
 	}
-// TEST
-
-	private Response testAuthorize(String state) {
-		String userId = "aleksashka6666@gmail.com";
-		URI uri = null;
-		String newURI = uriInfo.getBaseUri().toString();
-		newURI = newURI.substring(0, newURI.indexOf("webapi"));
-		httpServletRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, userId);
-		if (userDAO.find(userId) == null) {
-			userDAO.create(userId);
-		}
-		try {
-			if ("profile".equals(state)) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + userId).build("/", "/users/" + userId);
-			} else if (!(state == null) && !state.isEmpty()) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment(state).build("", state);
-			} else {
-				uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
-			}
-		} catch (URISyntaxException ex) {
-			throw new WebApplicationException(ex);
-		}
-		return Response.seeOther(uri).build();
-	}
-//
 
 	@GET
 	@Path("authorize")
@@ -113,39 +89,34 @@ public class GoogleResource {
 		URI uri = null;
 		try {
 			OAuthClientRequest request = OAuthClientRequest
-					.tokenProvider(OAuthProviderType.GOOGLE)
+					.tokenProvider(org.apache.oltu.oauth2.common.OAuthProviderType.FACEBOOK)
 					.setCode(code)
-					.setClientId(env.getGoogleClientId())
-					.setClientSecret(env.getGoogleClientSecret())
+					.setClientId(env.getFacebookClientId())
+					.setClientSecret(env.getFacebookClientSecret())
 					.setRedirectURI(UriBuilder.fromUri(uriInfo.getBaseUri())
-							.path(env.getGoogleAuthorizeRoute()).build().toString())
-					.setGrantType(GrantType.AUTHORIZATION_CODE)
+							.path(env.getFacebookAuthorizeRoute()).build().toString())
 					.buildBodyMessage();
 
 			OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
-			OAuthJSONAccessTokenResponse oAuthResponse = oAuthClient.accessToken(request);
-
-			OAuthClientRequest bearerClientRequest = new OAuthBearerClientRequest(env.getGoogleUserInfoUrl())
-					.setAccessToken(oAuthResponse.getAccessToken())
+			String token = getAccessToken(request.getBody());
+			OAuthClientRequest bearerClientRequest = new OAuthBearerClientRequest(env.getFacebookUserInfoUrl())
+					.setAccessToken(token)
 					.buildQueryMessage();
 			OAuthResourceResponse resourceResponse = oAuthClient.resource(bearerClientRequest, OAuth.HttpMethod.GET,
 					OAuthResourceResponse.class);
-			String userId = getGoogleProfileEmail(resourceResponse);
-			if (userId == null) {
-				return null;
-			}
-			uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
+			String userId = getFacebookProfileId(resourceResponse);
+
+			userId = "fb-" + userId;
 			if (httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY) != null) {
 				String sessionUserId = (String) httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY);
-				if (!sessionUserId.contains("@")) {
+				if (!sessionUserId.contains("fb-")) {
 					UserInfo userFromAllIds = userDAO.findFromAllIds(sessionUserId);
 					UserInfo userIdFromAllIds = userDAO.findFromAllIds(userId);
-					if ((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null)))
-							|| ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
+					if ((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null))) || ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
 						uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + sessionUserId).build("/", "/users/" + sessionUserId);
 						return Response.seeOther(uri).build();
 					}
-					UserInfo userWithAddId = userDAO.setAdditionalId(sessionUserId, userId);
+					UserInfo userWithAddId = userDAO.setAdditionalId(userFromAllIds.getPublicKey(), userId);
 					if (userWithAddId == null) {
 						httpServletRequest.getSession().setAttribute(AuthFilter.USER_ALT_ID_KEY, userId);
 						sessionUserId = (String) httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY);
@@ -154,7 +125,6 @@ public class GoogleResource {
 					}
 					state = "profile";
 				} else {
-
 					httpServletRequest.getSession().removeAttribute(AuthFilter.USER_ID_KEY);
 					httpServletRequest.getSession().removeAttribute(AuthFilter.USER_ALT_ID_KEY);
 					return Response.seeOther(uri).build();
@@ -171,7 +141,7 @@ public class GoogleResource {
 				log.setType(OperationType.LOGIN_LOGOUT);
 				log.setUserId(user.getPublicKey());
 				String additionalIdsStr = "";
-				for (String id : user.getAdditionalIds()) {
+				for(String id : user.getAdditionalIds()) {
 					additionalIdsStr += id + ";";
 				}
 				log.setUserAdditionalIds(additionalIdsStr);
@@ -188,18 +158,37 @@ public class GoogleResource {
 				uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
 			}
 
-		} catch (OAuthSystemException | OAuthProblemException | IOException e) {
+		} catch (OAuthSystemException | OAuthProblemException e) {
+			throw new WebApplicationException(e);
+		} catch (MalformedURLException e) {
+			throw new WebApplicationException(e);
+		} catch (IOException e) {
 			throw new WebApplicationException(e);
 		}
 		return Response.seeOther(uri).build();
 	}
 
-	public static String getGoogleProfileEmail(OAuthResourceResponse resourceResponse) throws IOException {
+	private String getAccessToken(String requestBody) throws MalformedURLException, IOException {
+		URL u = new URL("https://graph.facebook.com/oauth/access_token?" + requestBody);
+		URLConnection c = u.openConnection();
+		BufferedReader in = new BufferedReader(new InputStreamReader(c.getInputStream()));
+		String inputLine;
+		StringBuilder b = new StringBuilder();
+		while ((inputLine = in.readLine()) != null) {
+			b.append(inputLine);
+		}
+		in.close();
+		String respond = b.toString();
+		String respondReplacedAccess = respond.replace("access_token=", "");
+		String token = respondReplacedAccess.substring(0, respondReplacedAccess.indexOf("&expires="));
+		return token;
+	}
+
+	private String getFacebookProfileId(OAuthResourceResponse resourceResponse) throws IOException {
 		String resourceResponseBody = resourceResponse.getBody();
 		ObjectMapper objectMapper = new ObjectMapper();
 		JsonNode jsonNode = objectMapper.readTree(resourceResponseBody);
-		JsonNode idNode = jsonNode.get("email");
+		JsonNode idNode = jsonNode.get("id");
 		return (idNode != null) ? idNode.asText() : null;
 	}
-
 }

@@ -3,9 +3,12 @@ package com.qbit.commons.user;
 import com.qbit.commons.model.Identifiable;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import javax.persistence.Access;
 import javax.persistence.AccessType;
+import javax.persistence.CollectionTable;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Temporal;
@@ -30,6 +33,9 @@ public class UserInfo implements Identifiable<String>, Serializable {
 
 	@Id
 	private String publicKey;
+	@ElementCollection
+	@CollectionTable(name = "additional_ids")
+	private List<String> additionalIds;
 
 	@Temporal(TemporalType.TIMESTAMP)
 	private Date registrationDate;
@@ -53,6 +59,14 @@ public class UserInfo implements Identifiable<String>, Serializable {
 
 	public void setRegistrationDate(Date registrationDate) {
 		this.registrationDate = registrationDate;
+	}
+
+	public List<String> getAdditionalIds() {
+		return additionalIds;
+	}
+
+	public void setAdditionalIds(List<String> additionalIds) {
+		this.additionalIds = additionalIds;
 	}
 
 	@Override
@@ -79,6 +93,6 @@ public class UserInfo implements Identifiable<String>, Serializable {
 
 	@Override
 	public String toString() {
-		return "UserInfo{" + "publicKey=" + publicKey + ", registrationDate=" + registrationDate + '}';
+		return "UserInfo{" + "publicKey=" + publicKey + ", additionalIds=" + additionalIds + ", registrationDate=" + registrationDate + '}';
 	}
 }

@@ -5,8 +5,6 @@ import com.qbit.commons.log.model.Log;
 import com.qbit.commons.log.model.OperationType;
 import com.qbit.commons.log.service.LogScheduler;
 import com.qbit.commons.user.UserDAO;
-import com.qbit.commons.user.UserInfo;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import javax.inject.Inject;
@@ -23,24 +21,21 @@ import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.URLConnectionClient;
-import org.apache.oltu.oauth2.client.request.OAuthBearerClientRequest;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthJSONAccessTokenResponse;
-import org.apache.oltu.oauth2.client.response.OAuthResourceResponse;
-import org.apache.oltu.oauth2.common.OAuth;
-import org.apache.oltu.oauth2.common.OAuthProviderType;
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.qbit.commons.user.UserInfo;
 
 /**
  * @author Alexander_Sergeev
  */
-@Path("oauth2")
+@Path("vk-oauth2")
 @Singleton
-public class GoogleResource {
+public class VKResource {
+
+	public final static String VK_FRIENDS_API_BASE_URL = "https://api.vk.com/method/";
 
 	@Context
 	private UriInfo uriInfo;
@@ -52,25 +47,25 @@ public class GoogleResource {
 	private CommonsEnv env;
 
 	@Inject
-	private LogScheduler logScheduler;
+	private UserDAO userDAO;
 
 	@Inject
-	private UserDAO userDAO;
+	private LogScheduler logScheduler;
 
 	@GET
 	@Path("authenticate")
 	@Produces("text/html")
 	public Response authenticate(@QueryParam("redirect") String redirectUri) {
 		try {
-			OAuthClientRequest request = OAuthClientRequest
-					.authorizationProvider(OAuthProviderType.GOOGLE)
-					.setClientId(env.getGoogleClientId())
+			OAuthClientRequest request = QBITOAuthClientRequest
+					.authorizationProvider(OAuthProviderType.VK)
+					.setClientId(env.getVKClientId())
 					.setResponseType("code")
-					.setScope(env.getGoogleScope())
+					.setScope(env.getVKScope())
 					.setState(redirectUri)
 					.setRedirectURI(
 							UriBuilder.fromUri(uriInfo.getBaseUri())
-							.path(env.getGoogleAuthorizeRoute()).build().toString())
+							.path(env.getVKAuthorizeRoute()).build().toString())
 					.buildQueryMessage();
 			URI redirect = new URI(request.getLocationUri());
 			return Response.seeOther(redirect).build();
@@ -78,31 +73,6 @@ public class GoogleResource {
 			throw new WebApplicationException(e);
 		}
 	}
-// TEST
-
-	private Response testAuthorize(String state) {
-		String userId = "aleksashka6666@gmail.com";
-		URI uri = null;
-		String newURI = uriInfo.getBaseUri().toString();
-		newURI = newURI.substring(0, newURI.indexOf("webapi"));
-		httpServletRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, userId);
-		if (userDAO.find(userId) == null) {
-			userDAO.create(userId);
-		}
-		try {
-			if ("profile".equals(state)) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + userId).build("/", "/users/" + userId);
-			} else if (!(state == null) && !state.isEmpty()) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment(state).build("", state);
-			} else {
-				uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
-			}
-		} catch (URISyntaxException ex) {
-			throw new WebApplicationException(ex);
-		}
-		return Response.seeOther(uri).build();
-	}
-//
 
 	@GET
 	@Path("authorize")
@@ -112,36 +82,32 @@ public class GoogleResource {
 		newURI = newURI.substring(0, newURI.indexOf("webapi"));
 		URI uri = null;
 		try {
-			OAuthClientRequest request = OAuthClientRequest
-					.tokenProvider(OAuthProviderType.GOOGLE)
+			OAuthClientRequest request = QBITOAuthClientRequest
+					.tokenProvider(OAuthProviderType.VK)
 					.setCode(code)
-					.setClientId(env.getGoogleClientId())
-					.setClientSecret(env.getGoogleClientSecret())
+					.setClientId(env.getVKClientId())
+					.setClientSecret(env.getVKClientSecret())
 					.setRedirectURI(UriBuilder.fromUri(uriInfo.getBaseUri())
-							.path(env.getGoogleAuthorizeRoute()).build().toString())
+							.path(env.getVKAuthorizeRoute()).build().toString())
 					.setGrantType(GrantType.AUTHORIZATION_CODE)
 					.buildBodyMessage();
 
 			OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
 			OAuthJSONAccessTokenResponse oAuthResponse = oAuthClient.accessToken(request);
-
-			OAuthClientRequest bearerClientRequest = new OAuthBearerClientRequest(env.getGoogleUserInfoUrl())
-					.setAccessToken(oAuthResponse.getAccessToken())
-					.buildQueryMessage();
-			OAuthResourceResponse resourceResponse = oAuthClient.resource(bearerClientRequest, OAuth.HttpMethod.GET,
-					OAuthResourceResponse.class);
-			String userId = getGoogleProfileEmail(resourceResponse);
+			String userId = oAuthResponse.getParam("user_id");
+			String accessToken = oAuthResponse.getAccessToken();
+			System.out.println("ACCESS_TOKEN: " + accessToken);
 			if (userId == null) {
 				return null;
 			}
 			uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
+			userId = "vk-" + userId;
 			if (httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY) != null) {
 				String sessionUserId = (String) httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY);
-				if (!sessionUserId.contains("@")) {
+				if (!sessionUserId.contains("vk-")) {
 					UserInfo userFromAllIds = userDAO.findFromAllIds(sessionUserId);
 					UserInfo userIdFromAllIds = userDAO.findFromAllIds(userId);
-					if ((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null)))
-							|| ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
+					if((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null))) || ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
 						uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + sessionUserId).build("/", "/users/" + sessionUserId);
 						return Response.seeOther(uri).build();
 					}
@@ -154,7 +120,6 @@ public class GoogleResource {
 					}
 					state = "profile";
 				} else {
-
 					httpServletRequest.getSession().removeAttribute(AuthFilter.USER_ID_KEY);
 					httpServletRequest.getSession().removeAttribute(AuthFilter.USER_ALT_ID_KEY);
 					return Response.seeOther(uri).build();
@@ -171,7 +136,7 @@ public class GoogleResource {
 				log.setType(OperationType.LOGIN_LOGOUT);
 				log.setUserId(user.getPublicKey());
 				String additionalIdsStr = "";
-				for (String id : user.getAdditionalIds()) {
+				for(String id : user.getAdditionalIds()) {
 					additionalIdsStr += id + ";";
 				}
 				log.setUserAdditionalIds(additionalIdsStr);
@@ -187,19 +152,9 @@ public class GoogleResource {
 			} else {
 				uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
 			}
-
-		} catch (OAuthSystemException | OAuthProblemException | IOException e) {
+		} catch (OAuthSystemException | OAuthProblemException e) {
 			throw new WebApplicationException(e);
 		}
 		return Response.seeOther(uri).build();
 	}
-
-	public static String getGoogleProfileEmail(OAuthResourceResponse resourceResponse) throws IOException {
-		String resourceResponseBody = resourceResponse.getBody();
-		ObjectMapper objectMapper = new ObjectMapper();
-		JsonNode jsonNode = objectMapper.readTree(resourceResponseBody);
-		JsonNode idNode = jsonNode.get("email");
-		return (idNode != null) ? idNode.asText() : null;
-	}
-
 }

@@ -2,6 +2,7 @@ package com.qbit.commons.auth;
 
 import com.qbit.commons.crypto.util.EncryptionUtil;
 import com.qbit.commons.env.CommonsEnv;
+import com.qbit.commons.log.model.Location;
 import com.qbit.commons.user.UserDAO;
 import java.io.IOException;
 import java.net.URI;
@@ -31,6 +32,9 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 public class AuthFilter implements ContainerRequestFilter {
 
 	public static final String USER_ID_KEY = "user_id";
+	public static final String USER_ALT_ID_KEY = "user_alt_Id";
+	public static final String MACHINE_ID_KEY = "machine_id";
+	public static final String USER_LOCATION = "user_location";
 
 	@Inject
 	private CommonsEnv env;
@@ -42,6 +46,18 @@ public class AuthFilter implements ContainerRequestFilter {
 
 	public static String getUserId(HttpServletRequest request) {
 		return (String) request.getSession().getAttribute(USER_ID_KEY);
+	}
+
+	public static String getUserAltId(HttpServletRequest request) {
+		return (String) request.getSession().getAttribute(USER_ALT_ID_KEY);
+	}
+
+	public static String getMachineId(HttpServletRequest request) {
+		return (String) request.getSession().getAttribute(MACHINE_ID_KEY);
+	}
+
+	public static Location getUserLocation(HttpServletRequest request) {
+		return (Location) request.getSession().getAttribute(USER_LOCATION);
 	}
 
 	@Override
