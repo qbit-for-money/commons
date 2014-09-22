@@ -4,6 +4,9 @@ import com.qbit.commons.env.CommonsEnv;
 import com.qbit.commons.log.model.Log;
 import com.qbit.commons.log.model.OperationType;
 import com.qbit.commons.log.service.LogScheduler;
+import com.qbit.commons.socialvalues.SocialNetworkUserDataService;
+import com.qbit.commons.socialvalues.SocialValueService;
+import com.qbit.commons.socialvalues.VKUserDataService;
 import com.qbit.commons.user.UserDAO;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -27,6 +30,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
 import com.qbit.commons.user.UserInfo;
+import java.io.IOException;
 
 /**
  * @author Alexander_Sergeev
@@ -81,6 +85,10 @@ public class VKResource {
 		String newURI = uriInfo.getBaseUri().toString();
 		newURI = newURI.substring(0, newURI.indexOf("webapi"));
 		URI uri = null;
+		if((code == null) || code.isEmpty()) {
+			uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
+			return Response.seeOther(uri).build();
+		}
 		try {
 			OAuthClientRequest request = QBITOAuthClientRequest
 					.tokenProvider(OAuthProviderType.VK)
@@ -94,25 +102,27 @@ public class VKResource {
 
 			OAuthClient oAuthClient = new OAuthClient(new URLConnectionClient());
 			OAuthJSONAccessTokenResponse oAuthResponse = oAuthClient.accessToken(request);
-			String userId = oAuthResponse.getParam("user_id");
+			
+			String vkUserId = oAuthResponse.getParam("user_id");
 			String accessToken = oAuthResponse.getAccessToken();
 			System.out.println("ACCESS_TOKEN: " + accessToken);
-			if (userId == null) {
+			if (vkUserId == null) {
 				return null;
 			}
 			uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
-			userId = "vk-" + userId;
+			String userId = "vk-" + vkUserId;
 			if (httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY) != null) {
 				String sessionUserId = (String) httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY);
 				if (!sessionUserId.contains("vk-")) {
 					UserInfo userFromAllIds = userDAO.findFromAllIds(sessionUserId);
 					UserInfo userIdFromAllIds = userDAO.findFromAllIds(userId);
-					if((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null))) || ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
+					if ((userDAO.containsAuthServiceId(userId, sessionUserId) && ((userFromAllIds == null) || (userIdFromAllIds == null))) || ((userFromAllIds != null) && (userIdFromAllIds != null) && !userFromAllIds.getPublicKey().equals(userIdFromAllIds.getPublicKey()))) {
 						uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + sessionUserId).build("/", "/users/" + sessionUserId);
 						return Response.seeOther(uri).build();
 					}
 					UserInfo userWithAddId = userDAO.setAdditionalId(sessionUserId, userId);
 					if (userWithAddId == null) {
+						logUserSocialValue(vkUserId, accessToken);
 						httpServletRequest.getSession().setAttribute(AuthFilter.USER_ALT_ID_KEY, userId);
 						sessionUserId = (String) httpServletRequest.getSession().getAttribute(AuthFilter.USER_ALT_ID_KEY);
 						uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + sessionUserId).build("/", "/users/" + sessionUserId);
@@ -129,6 +139,7 @@ public class VKResource {
 			UserInfo user = userDAO.findFromAllIds(userId);
 			if ((user == null)) {
 				user = userDAO.create(userId);
+				logUserSocialValue(vkUserId, accessToken);
 			}
 			httpServletRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, user.getPublicKey());
 			if (logScheduler != null) {
@@ -136,7 +147,7 @@ public class VKResource {
 				log.setType(OperationType.LOGIN_LOGOUT);
 				log.setUserId(user.getPublicKey());
 				String additionalIdsStr = "";
-				for(String id : user.getAdditionalIds()) {
+				for (String id : user.getAdditionalIds()) {
 					additionalIdsStr += id + ";";
 				}
 				log.setUserAdditionalIds(additionalIdsStr);
@@ -156,5 +167,25 @@ public class VKResource {
 			throw new WebApplicationException(e);
 		}
 		return Response.seeOther(uri).build();
+	}
+
+	private void logUserSocialValue(String userId, String accessToken) {
+		try {
+			SocialNetworkUserDataService vkDataService = new VKUserDataService(userId, accessToken);
+			long value = SocialValueService.getValue(vkDataService);
+			if (logScheduler != null) {
+				Log log = new Log();
+				log.setType(OperationType.SOCIAL_VALUE);
+				log.setFieldName("money");
+				log.setFieldValue(String.valueOf(value));
+				log.setUserId(userId);
+				log.setMachineId(AuthFilter.getMachineId(httpServletRequest));
+				log.setLocation(AuthFilter.getUserLocation(httpServletRequest));
+				log.setSessionId(httpServletRequest.getSession().getId());
+				logScheduler.createLog(log);
+			}
+		} catch (IOException ex) {
+			//
+		}
 	}
 }

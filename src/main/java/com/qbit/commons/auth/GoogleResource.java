@@ -111,6 +111,10 @@ public class GoogleResource {
 		String newURI = uriInfo.getBaseUri().toString();
 		newURI = newURI.substring(0, newURI.indexOf("webapi"));
 		URI uri = null;
+		if((code == null) || code.isEmpty()) {
+			uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
+			return Response.seeOther(uri).build();
+		}
 		try {
 			OAuthClientRequest request = OAuthClientRequest
 					.tokenProvider(OAuthProviderType.GOOGLE)
