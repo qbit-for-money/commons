@@ -78,31 +78,6 @@ public class GoogleResource {
 			throw new WebApplicationException(e);
 		}
 	}
-// TEST
-
-	private Response testAuthorize(String state) {
-		String userId = "aleksashka6666@gmail.com";
-		URI uri = null;
-		String newURI = uriInfo.getBaseUri().toString();
-		newURI = newURI.substring(0, newURI.indexOf("webapi"));
-		httpServletRequest.getSession().setAttribute(AuthFilter.USER_ID_KEY, userId);
-		if (userDAO.find(userId) == null) {
-			userDAO.create(userId);
-		}
-		try {
-			if ("profile".equals(state)) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment("/users/" + userId).build("/", "/users/" + userId);
-			} else if (!(state == null) && !state.isEmpty()) {
-				uri = UriBuilder.fromUri(new URI(newURI)).fragment(state).build("", state);
-			} else {
-				uri = UriBuilder.fromUri(new URI(newURI)).path("/").build();
-			}
-		} catch (URISyntaxException ex) {
-			throw new WebApplicationException(ex);
-		}
-		return Response.seeOther(uri).build();
-	}
-//
 
 	@GET
 	@Path("authorize")

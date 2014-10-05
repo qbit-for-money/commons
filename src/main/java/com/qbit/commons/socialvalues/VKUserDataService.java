@@ -41,7 +41,6 @@ public class VKUserDataService implements SocialNetworkUserDataService {
 		String response = builder.get(String.class);
 		response = response.replace("{\"response\":[", "");
 		response = response.substring(0, response.lastIndexOf("]}"));
-		System.out.println("@@ " + response);
 		ObjectMapper objectMapper = new ObjectMapper();
 		USER_JSON_NODE = objectMapper.readTree(response);
 		

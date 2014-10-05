@@ -1,10 +1,13 @@
 package com.qbit.commons.model;
 
 import java.io.Serializable;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 
 /**
  * @author Alexander_Sergeev
  */
+@XmlAccessorType(XmlAccessType.FIELD)
 public class Point2 implements Serializable, Comparable<Point2> {
 
 	private final int x;

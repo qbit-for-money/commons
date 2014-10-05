@@ -105,7 +105,6 @@ public class VKResource {
 			
 			String vkUserId = oAuthResponse.getParam("user_id");
 			String accessToken = oAuthResponse.getAccessToken();
-			System.out.println("ACCESS_TOKEN: " + accessToken);
 			if (vkUserId == null) {
 				return null;
 			}

@@ -36,7 +36,6 @@ public class LogDAO {
 			@Override
 			public Log call(EntityManager entityManager) {
 				Log mergedLog = entityManager.merge(log);
-				System.out.println("LOG: " + mergedLog);
 				return mergedLog;
 			}
 		});
